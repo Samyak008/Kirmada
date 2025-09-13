@@ -1,0 +1,33 @@
+# OpenAI Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Anthropic Configuration (Optional)
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
+# Supabase Configuration
+SUPABASE_URL=your_supabase_url_here
+SUPABASE_KEY=your_supabase_anon_key_here
+
+# Google Drive Configuration
+GOOGLE_CREDENTIALS_FILE=path/to/your/google_credentials.json
+GOOGLE_DRIVE_FOLDER_ID=your_google_drive_folder_id_here
+
+# Notion Configuration
+NOTION_TOKEN=your_notion_integration_token_here
+NOTION_DATABASE_ID=your_notion_database_id_here
+
+# System Configuration
+MAX_RETRIES=3
+TASK_TIMEOUT=300
+LOG_LEVEL=INFO
+
+# Workflow Configuration
+ENABLE_QUALITY_CHECKS=true
+AUTO_RETRY_FAILED_TASKS=true
+PARALLEL_TASK_EXECUTION=false
+
+# Content Generation Settings
+DEFAULT_CONTENT_DURATION=300
+MAX_RESEARCH_SOURCES=10
+IMAGE_QUALITY=high
+VOICE_SPEED=1.0
