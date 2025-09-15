@@ -1,8 +1,6 @@
 """
 Configuration management for the Agentic Content Production System
 """
-
-import os
 from typing import Dict, Any, Optional
 from pydantic import BaseSettings, Field
 from dotenv import load_dotenv
@@ -13,10 +11,11 @@ load_dotenv()
 
 class Settings(BaseSettings):
     """Application settings"""
-    
     # API Keys
     openai_api_key: str = Field(..., env="OPENAI_API_KEY")
     anthropic_api_key: Optional[str] = Field(None, env="ANTHROPIC_API_KEY")
+    # Preferred LLM model (set in .env: OPENAI_MODEL=gpt-4o or gpt-4o-mini)
+    openai_model: str = Field(default="gpt-4o-mini", env="OPENAI_MODEL")
     
     # Supabase Configuration
     supabase_url: str = Field(..., env="SUPABASE_URL")
@@ -55,23 +54,23 @@ class AgentConfig:
     """Agent-specific configuration"""
     
     def __init__(self, config_data: Dict[str, Any]):
-        self.config = config_data
+        self.data = config_data
     
     def get_agent_prompt(self, agent_type: str) -> str:
         """Get system prompt for an agent"""
-        return self.config["agents"][agent_type]["system_prompt"]
+        return self.data["agents"][agent_type]["system_prompt"]
     
     def get_agent_capabilities(self, agent_type: str) -> list:
         """Get capabilities for an agent"""
-        return self.config["agents"][agent_type]["capabilities"]
+        return self.data["agents"][agent_type]["capabilities"]
     
     def get_workflow_phases(self) -> Dict[str, Any]:
         """Get workflow phase configuration"""
-        return self.config["workflow_phases"]
+        return self.data["workflow_phases"]
     
     def get_quality_standards(self) -> Dict[str, Any]:
         """Get quality standards configuration"""
-        return self.config["quality_standards"]
+        return self.data["quality_standards"]
 
 
 def load_agent_config(config_path: str = "agent_prompts.yaml") -> AgentConfig:

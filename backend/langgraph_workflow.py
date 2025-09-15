@@ -593,6 +593,44 @@ class ProjectManagementAgent(SpecializedAgent):
 def router_node(state: WorkflowState) -> WorkflowState:
     return state
 
+def _default_agent_state_from_input(inp: Dict[str, Any]) -> AgentState:
+    """Build a minimal AgentState if one wasn't provided."""
+    return AgentState(
+        project_id=inp.get("project_id", "proj_demo"),
+        project_name=inp.get("project_name", "Demo Project"),
+        content_request=inp.get("content_request", "Create a short video about AI trends."),
+        content_type=inp.get("content_type", "youtube_video"),
+        target_audience=inp.get("target_audience", "tech enthusiasts"),
+        deadline=inp.get("deadline", "2099-12-31T23:59:59"),
+        current_phase=inp.get("current_phase", "search"),
+        current_step=inp.get("current_step", "initialize"),
+        tasks=[],
+        supervisor_decisions=[],
+        research_data=None,
+        script=None,
+        assets=[],
+        project_folders=[],
+        notion_pages=[],
+        messages=[],
+        errors=[],
+        workflow_completed=False,
+    )
+
+def init_node(state: Dict[str, Any]) -> WorkflowState:
+    """Normalize user input into full WorkflowState."""
+    inbound = state or {}
+    agent_state = inbound.get("agent_state") or _default_agent_state_from_input(inbound)
+    messages = inbound.get("messages", [])
+    return WorkflowState(
+        agent_state=agent_state,
+        messages=messages,
+        current_agent=None,
+        next_agent=None,
+        task_results={},
+        errors=[],
+        workflow_completed=False,
+    )
+
 def create_workflow_graph(config_path: str = "agent_prompts.yaml") -> StateGraph:
     """Create the LangGraph workflow"""
     
@@ -613,7 +651,7 @@ def create_workflow_graph(config_path: str = "agent_prompts.yaml") -> StateGraph
     
     # Create the graph
     workflow = StateGraph(WorkflowState)
-
+    workflow.add_node("init", init_node)
     # Add nodes
     workflow.add_node("supervisor", supervisor.process)
     workflow.add_node("agent_research", research_agent.process)
@@ -632,6 +670,7 @@ def create_workflow_graph(config_path: str = "agent_prompts.yaml") -> StateGraph
     workflow.add_edge("agent_storage", "router")
     workflow.add_edge("agent_project_management", "router")
     workflow.add_edge("error_handler", "router")
+    workflow.add_edge("init", "supervisor")
 
     # Add conditional routing
     workflow.add_conditional_edges(
@@ -650,7 +689,7 @@ def create_workflow_graph(config_path: str = "agent_prompts.yaml") -> StateGraph
     )
 
     # Set entry point
-    workflow.set_entry_point("supervisor")
+    workflow.set_entry_point("init")
     return workflow
 
 
