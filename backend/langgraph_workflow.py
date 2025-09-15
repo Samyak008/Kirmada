@@ -1,3 +1,5 @@
+from __future__ import annotations  # ensure annotations aren't evaluated at import time
+
 from typing import Dict, Any, List, Optional, TypedDict, Annotated
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
@@ -8,7 +10,7 @@ import json
 from datetime import datetime
 from models import (
     AgentState, AgentType, TaskStatus, WorkflowPhase, 
-    AgentMessage, SupervisorDecision, QualityCheck
+    AgentMessage, SupervisorDecision, QualityCheck, Task  # add Task here
 )
 from tools import get_tools_for_agent, validate_tool_input, ToolResult
 
@@ -282,8 +284,6 @@ class SupervisorAgent:
     
     def _create_task(self, decision: SupervisorDecision, agent_state: AgentState) -> Task:
         """Create a task based on supervisor decision"""
-        from models import Task
-        
         return Task(
             task_id=f"task_{decision.decision_id}",
             agent_type=decision.chosen_agent,
@@ -589,6 +589,10 @@ class ProjectManagementAgent(SpecializedAgent):
             agent_state.current_step = "finalize"
 
 
+# Simple no-op router node so conditional routing has a source node
+def router_node(state: WorkflowState) -> WorkflowState:
+    return state
+
 def create_workflow_graph(config_path: str = "agent_prompts.yaml") -> StateGraph:
     """Create the LangGraph workflow"""
     
@@ -609,7 +613,7 @@ def create_workflow_graph(config_path: str = "agent_prompts.yaml") -> StateGraph
     
     # Create the graph
     workflow = StateGraph(WorkflowState)
-    
+
     # Add nodes
     workflow.add_node("supervisor", supervisor.process)
     workflow.add_node("agent_research", research_agent.process)
@@ -618,7 +622,8 @@ def create_workflow_graph(config_path: str = "agent_prompts.yaml") -> StateGraph
     workflow.add_node("agent_storage", storage_agent.process)
     workflow.add_node("agent_project_management", project_agent.process)
     workflow.add_node("error_handler", lambda state: state)  # Placeholder for error handling
-    
+    workflow.add_node("router", router_node)  # NEW: define router node
+
     # Add edges
     workflow.add_edge("supervisor", "router")
     workflow.add_edge("agent_research", "router")
@@ -627,7 +632,7 @@ def create_workflow_graph(config_path: str = "agent_prompts.yaml") -> StateGraph
     workflow.add_edge("agent_storage", "router")
     workflow.add_edge("agent_project_management", "router")
     workflow.add_edge("error_handler", "router")
-    
+
     # Add conditional routing
     workflow.add_conditional_edges(
         "router",
@@ -638,15 +643,14 @@ def create_workflow_graph(config_path: str = "agent_prompts.yaml") -> StateGraph
             "agent_asset_generation": "agent_asset_generation",
             "agent_storage": "agent_storage",
             "agent_project_management": "agent_project_management",
-            "supervisor": "supervisor",
+            "agent_supervisor": "supervisor",  # NEW: matches f"agent_{AgentType.SUPERVISOR.value}"
             "error_handler": "error_handler",
             "end": END
         }
     )
-    
+
     # Set entry point
     workflow.set_entry_point("supervisor")
-    
     return workflow
 
 
