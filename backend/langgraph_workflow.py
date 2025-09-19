@@ -143,6 +143,10 @@ class SupervisorAgent:
     
     def process(self, state: WorkflowState) -> WorkflowState:
         """Process supervisor decisions and task assignments"""
+        ################ToDO -> Pass it to the language model when making decisions or processing tasks
+        ################Verify that system prompt is being used correctly
+        system_message = SystemMessage(content=self.system_prompt)
+        state["messages"].append(system_message)
         agent_state = state["agent_state"]
         
         # Analyze current state and make decisions
@@ -305,7 +309,13 @@ class SpecializedAgent:
     
     def process(self, state: WorkflowState) -> WorkflowState:
         """Process agent-specific tasks"""
+        ################ToDO -> Pass it to the language model when making decisions or processing tasks
+        ################Verify that system prompt is being used correctly
+        system_message = SystemMessage(content=self.system_prompt)
+        state["messages"].append(system_message)
+        
         agent_state = state["agent_state"]
+
         
         # Get pending tasks for this agent
         pending_tasks = [task for task in agent_state.tasks 
