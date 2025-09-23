@@ -291,3 +291,106 @@ def validate_tool_input(agent_type: str, tool_name: str, input_data: Dict[str, A
         return True
     except Exception:
         return False
+
+
+# Tool Implementations
+
+def search_articles_tool(query: str, max_results: int = 8) -> ToolResult:
+    """Search for articles using the ResearchAgent"""
+    try:
+        from langgraph_workflow import ResearchAgent
+        from models import AgentType
+
+        # Create a temporary config for the research agent
+        config = {
+            "agents": {
+                "research": {
+                    "system_prompt": "You are a research agent specialized in finding high-quality information."
+                }
+            }
+        }
+
+        # Initialize research agent
+        agent = ResearchAgent(config)
+
+        # Execute search
+        result = agent._execute_task(
+            type('Task', (), {'task_type': 'search', 'description': 'search'})(),
+            type('AgentState', (), {'content_request': query})()
+        )
+
+        if result.get("success", True):
+            return ToolResult(
+                success=True,
+                data=result,
+                metadata={"tool": "search_articles", "query": query}
+            )
+        else:
+            return ToolResult(
+                success=False,
+                error_message=result.get("error", "Search failed"),
+                metadata={"tool": "search_articles", "query": query}
+            )
+
+    except Exception as e:
+        return ToolResult(
+            success=False,
+            error_message=str(e),
+            metadata={"tool": "search_articles", "query": query}
+        )
+
+
+def extract_article_content_tool(urls: List[str], include_metadata: bool = True) -> ToolResult:
+    """Extract content from article URLs using the ResearchAgent"""
+    try:
+        from langgraph_workflow import ResearchAgent
+        from models import AgentType, AgentState, ResearchData, Source
+
+        # Create a temporary config for the research agent
+        config = {
+            "agents": {
+                "research": {
+                    "system_prompt": "You are a research agent specialized in extracting content from articles."
+                }
+            }
+        }
+
+        # Initialize research agent
+        agent = ResearchAgent(config)
+
+        # Create mock agent state with sources
+        sources = [Source(url=url, title="", content="", relevance_score=0.8) for url in urls]
+        agent_state = AgentState(
+            project_id="temp",
+            project_name="temp",
+            content_request="temp",
+            content_type="youtube_video",
+            target_audience="testers",
+            research_data=ResearchData(topic="temp", sources=sources)
+        )
+
+        # Execute crawl
+        result = agent._execute_task(
+            type('Task', (), {'task_type': 'crawl', 'description': 'crawl'})(),
+            agent_state
+        )
+
+        if result.get("crawl_completed", False):
+            return ToolResult(
+                success=True,
+                data=result,
+                metadata={"tool": "extract_article_content", "urls": urls}
+            )
+        else:
+            return ToolResult(
+                success=False,
+                error_message="Content extraction failed",
+                metadata={"tool": "extract_article_content", "urls": urls}
+            )
+
+    except Exception as e:
+        return ToolResult(
+            success=False,
+            error_message=str(e),
+            metadata={"tool": "extract_article_content", "urls": urls}
+        )

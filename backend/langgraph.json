@@ -1,7 +1,7 @@
 {
   "dependencies": ["-r ./requirements.txt"],
   "graphs": {
-    "production_workflow": "./runtime_entry.py:production_workflow"
+    "production_workflow": "backend/runtime_entry.py:production_workflow"
   },
-  "env": ".env"
+  "env": "backend/.env"
 }
