@@ -1,5 +1,6 @@
 from __future__ import annotations  # ensure annotations aren't evaluated at import time
 
+import asyncio
 from typing import Dict, Any, List, Optional, TypedDict, Annotated, Union
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
@@ -391,20 +392,6 @@ class ResearchAgent(SpecializedAgent):
     
     def __init__(self, config: Dict[str, Any]):
         super().__init__(AgentType.RESEARCH, config)
-<<<<<<< Updated upstream
-    
-    def _execute_task(self, task: Task, agent_state: AgentState) -> Dict[str, Any]:
-        """Execute research tasks"""
-        # This is where you would implement actual research logic
-        # For now, return mock data structure
-        return {
-            "research_completed": True,
-            "sources_found": 5,
-            "key_findings": ["Finding 1", "Finding 2", "Finding 3"],
-            "research_quality_score": 0.85
-        }
-    
-=======
         # Initialize search and crawl services
         self.search_service = self._init_search_service()
         self.crawl_service = self._init_crawl_service()
@@ -779,7 +766,6 @@ Return ONLY the JSON array with no additional text."""
                 "error": str(e),
                 "provider": "html_parsing"
             }
-
     def _execute_task(self, task: Task, agent_state: AgentState) -> Dict[str, Any]:
         """Execute research tasks with real search and crawling using existing infrastructure"""
         import asyncio
@@ -947,36 +933,35 @@ Return ONLY the JSON array with no additional text."""
                 "error": str(e)
             }
 
->>>>>>> Stashed changes
-    def _update_agent_state(self, agent_state: AgentState, result: Dict[str, Any]) -> None:
-        """Update agent state with research results"""
-        # Create mock research data
-        from models import ResearchData, Source
-        
-        sources = [
-            Source(
-                url="https://example.com/article1",
-                title="Sample Article 1",
-                content="Sample content from article 1",
-                relevance_score=0.9,
-                tags=["tech", "ai"]
-            )
-        ]
-        
-        research_data = ResearchData(
-            topic=agent_state.content_request,
-            sources=sources,
-            key_findings=result.get("key_findings", []),
-            research_notes="Research completed successfully"
+def _update_agent_state(self, agent_state: AgentState, result: Dict[str, Any]) -> None:
+    """Update agent state with research results"""
+    # Create mock research data
+    from models import ResearchData, Source
+    
+    sources = [
+        Source(
+            url="https://example.com/article1",
+            title="Sample Article 1",
+            content="Sample content from article 1",
+            relevance_score=0.9,
+            tags=["tech", "ai"]
         )
-        
-        agent_state.research_data = research_data
-        
-        # Update current step based on phase
-        if agent_state.current_phase == "search":
-            agent_state.current_step = "crawl"
-        elif agent_state.current_phase == "crawl":
-            agent_state.current_step = "store_article"
+    ]
+    
+    research_data = ResearchData(
+        topic=agent_state.content_request,
+        sources=sources,
+        key_findings=result.get("key_findings", []),
+        research_notes="Research completed successfully"
+    )
+    
+    agent_state.research_data = research_data
+    
+    # Update current step based on phase
+    if agent_state.current_phase == "search":
+        agent_state.current_step = "crawl"
+    elif agent_state.current_phase == "crawl":
+        agent_state.current_step = "store_article"
 
 
 class ContentAgent(SpecializedAgent):
