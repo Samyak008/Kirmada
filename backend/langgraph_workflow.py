@@ -255,12 +255,12 @@ def create_workflow_graph(config_path: str = "agent_prompts.yaml") -> StateGraph
     logger.info(f"Creating workflow graph with config: {config_path}")
     
     # Import agents from their separate modules
-    from supervisor_agent import SupervisorAgent
-    from research_agent import ResearchAgent
-    from content_agent import ContentAgent
-    from asset_generation_agent import AssetGenerationAgent
-    from storage_agent import StorageAgent
-    from project_management_agent import ProjectManagementAgent
+    from agents.supervisor_agent import SupervisorAgent
+    from agents.research_agent import ResearchAgent
+    from agents.content_agent import ContentAgent
+    from agents.asset_generation_agent import AssetGenerationAgent
+    from agents.storage_agent import StorageAgent
+    from agents.project_management_agent import ProjectManagementAgent
     
     # Load configuration
     with open(config_path, 'r') as f:

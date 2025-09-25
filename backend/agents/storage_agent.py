@@ -12,7 +12,7 @@ from models import (
     AgentMessage, SupervisorDecision, QualityCheck, Task
 )
 from tools import get_tools_for_agent, validate_tool_input, ToolResult
-from specialized_agent import SpecializedAgent
+from .specialized_agent import SpecializedAgent
 from typing import TypedDict
 
 
@@ -32,44 +32,46 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
-class ProjectManagementAgent(SpecializedAgent):
-    """Project management agent implementation"""
+class StorageAgent(SpecializedAgent):
+    """Storage agent implementation"""
     
     def __init__(self, config_path: str = "agent_prompts.yaml"):
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
-        super().__init__(AgentType.PROJECT_MANAGEMENT, config)
+        super().__init__(AgentType.STORAGE, config)
     
     def _execute_task(self, task: Task, agent_state: AgentState) -> Dict[str, Any]:
-        """Execute project management tasks"""
-        logger.info(f"Project management agent executing task: {task.description}. Current phase: {agent_state.current_phase}")
+        """Execute storage tasks"""
+        logger.info(f"Storage agent executing task: {task.description}. Current phase: {agent_state.current_phase}")
         result = {
-            "notion_workspace_created": True,
-            "project_tracking_setup": True,
-            "milestones_defined": 6,
-            "team_coordination_complete": True
+            "data_stored": True,
+            "folders_created": 3,
+            "files_uploaded": 12,
+            "metadata_tagged": True
         }
-        logger.info(f"Project management agent task completed successfully. Result: {result}")
+        logger.info(f"Storage agent task completed successfully. Result: {result}")
         return result
     
     def _update_agent_state(self, agent_state: AgentState, result: Dict[str, Any]) -> None:
-        """Update agent state with project management results"""
-        logger.info(f"Project management agent updating agent state. Current phase: {agent_state.current_phase}")
+        """Update agent state with storage results"""
+        logger.info(f"Storage agent updating agent state. Current phase: {agent_state.current_phase}")
         
-        from models import NotionPage
+        from models import ProjectFolder, DatabaseRecord
         
-        # Create mock Notion page
-        page = NotionPage(
-            page_id="notion_page_1",
-            title=agent_state.project_name,
-            content={"status": "active", "progress": 25}
+        # Create mock storage records
+        folder = ProjectFolder(
+            folder_id="project_folder_1",
+            folder_name=agent_state.project_name,
+            google_drive_path="/Content Production/Projects/",
+            files=["file1", "file2"]
         )
         
-        agent_state.notion_pages.append(page)
+        agent_state.project_folders.append(folder)
         
         # Update current phase to advance the workflow
-        if agent_state.current_phase == "notion_integration":
-            agent_state.notion_project_id = result.get("notion_project_id", "")
-            agent_state.notion_status = result.get("notion_status", "active")
-            agent_state.current_phase = "finalize"
-            logger.info("Advanced phase from notion_integration to finalize")
+        if agent_state.current_phase == "store_article":
+            agent_state.current_phase = "generate_script"
+            logger.info("Advanced phase from store_article to generate_script")
+        elif agent_state.current_phase == "store_script":
+            agent_state.current_phase = "shot_analysis"
+            logger.info("Advanced phase from store_script to shot_analysis")

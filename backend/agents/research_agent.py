@@ -12,7 +12,7 @@ from models import (
     AgentMessage, SupervisorDecision, QualityCheck, Task
 )
 from tools import get_tools_for_agent, validate_tool_input, ToolResult
-from specialized_agent import SpecializedAgent
+from .specialized_agent import SpecializedAgent
 from typing import TypedDict
 
 
