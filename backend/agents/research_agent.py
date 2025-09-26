@@ -58,7 +58,7 @@ class ResearchAgent(SpecializedAgent):
         if openai_api_key:
             try:
                 from langchain_openai import ChatOpenAI
-                model_name = os.getenv("OPENAI_MODEL", "gpt-5-mini")
+                model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
                 logger.info(f"Initializing ChatOpenAI with model: {model_name}")
                 return ChatOpenAI(model=model_name, temperature=0.1, api_key=openai_api_key)
             except ImportError:

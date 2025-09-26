@@ -1,8 +1,9 @@
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_community.chat_models import ChatLiteLLM
+from langchain_openai import ChatOpenAI
 from openai import OpenAI
 import os
+import getpass
 import asyncio
 import json
 from datetime import datetime
@@ -22,17 +23,19 @@ from agents.voice_generation_agent import voice_tools
 from agents.voice_cloning_setup import voice_cloning_tools
 
 # Load environment variables
-load_dotenv("../.env")
+load_dotenv()
 
 # Get today's date for context
 today = datetime.now().strftime("%Y-%m-%d")
 
-model = ChatLiteLLM(
-    model="openai/gpt-5-mini",
+# Use ChatOpenAI instead of ChatLiteLLM
+model = ChatOpenAI(
+    model="gpt-4o-mini",  # Using a supported OpenAI model
     api_key=os.getenv("OPENAI_API_KEY"),
     max_tokens=4000,
-    temperature=0.1
+    temperature=1.0  # Standard temperature for balanced creativity
 )
+
 
 # Enhanced system prompt with updated guardrails and image generation guidance
 # More agentic with structured workflow phases and robust error handling

@@ -211,7 +211,7 @@ def store_article_content_tool(article_data: str) -> str:
     """
     Store article content in database using backend storage infrastructure
     """
-    # This would connect to the actual backend storage infrastructure
+    # This would connect to the actual backend crawling infrastructure
     # For now, simulate with mock response
     try:
         data = json.loads(article_data)
@@ -295,14 +295,14 @@ class AdvancedContentAgent:
             ]
         )
         
-        # Initialize LLM (using same as existing system)
-        from langchain_community.chat_models import ChatLiteLLM
+        # Initialize LLM using langchain_openai instead of ChatLiteLLM
+        from langchain_openai import ChatOpenAI
         
-        self.llm = ChatLiteLLM(
-            model="openai/gpt-5-mini",
+        self.llm = ChatOpenAI(
+            model="gpt-4o-mini",  # Using a supported OpenAI model
             api_key=os.getenv("OPENAI_API_KEY"),
             max_tokens=4000,
-            temperature=0.1
+            temperature=0.7  # Standard temperature for balanced creativity
         )
         
         # Create the react agent with enhanced tools
@@ -629,5 +629,3 @@ if __name__ == "__main__":
     print(f"Assets generated: {len(result.get('assets_generated', []))}")
     print(f"Project metadata: {result.get('project_metadata', {})}")
     print(f"Workflow completed: {result.get('workflow_completed', False)}")
-"""
-"""

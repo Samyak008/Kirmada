@@ -4,30 +4,28 @@ import os
 import asyncio
 import json
 from datetime import datetime
-from langchain_community.chat_models import ChatLiteLLM
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv("../.env")
+load_dotenv()
 
-# Initialize OpenAI client
-openai_model = ChatLiteLLM(
-    model="openai/gpt-5-mini",
+# Initialize OpenAI model using ChatOpenAI instead of ChatLiteLLM
+openai_model = ChatOpenAI(
+    model="gpt-4o-mini",  # Using a supported OpenAI model
     api_key=os.getenv("OPENAI_API_KEY"),
-    max_tokens=2000,
-    temperature=0.7
+    max_tokens=4000,
+    temperature=1.0  # Standard temperature for balanced creativity
 )
 
-def get_supabase_client():
-    """Get Supabase client with proper configuration."""
-    supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
-    
-    if not supabase_url or not supabase_key:
-        raise Exception("Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables")
-    
+# Initialize Supabase client
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_ANON_KEY")
+
+def get_supabase_client() -> Client:
+    """Get Supabase client instance."""
     return create_client(supabase_url, supabase_key)
 
 @tool

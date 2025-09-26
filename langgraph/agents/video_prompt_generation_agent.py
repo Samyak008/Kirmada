@@ -148,7 +148,7 @@ Return a JSON array with video prompts for each segment. Example format:
 Generate prompts for all image transitions plus intro and outro if needed."""
 
         payload = {
-            "model": "gpt-5-mini",
+            "model": "gpt-4o-mini",
             "messages": [
                 {"role": "system", "content": "You are an expert video director and motion designer."},
                 {"role": "user", "content": prompt}
