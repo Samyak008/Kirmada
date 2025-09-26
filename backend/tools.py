@@ -1,6 +1,8 @@
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from models import AgentState, ResearchData, Script, Asset, ProjectFolder, DatabaseRecord, NotionPage, Task
+import json
+from langchain_core.tools import tool
 
 
 class ToolResult(BaseModel):
@@ -295,7 +297,8 @@ def validate_tool_input(agent_type: str, tool_name: str, input_data: Dict[str, A
 
 # Tool Implementations
 
-def search_articles_tool(query: str, max_results: int = 8) -> ToolResult:
+@tool
+def search_articles_tool(query: str, max_results: int = 8) -> str:
     """Search for articles using the ResearchAgent"""
     try:
         from langgraph_workflow import ResearchAgent
@@ -320,27 +323,16 @@ def search_articles_tool(query: str, max_results: int = 8) -> ToolResult:
         )
 
         if result.get("success", True):
-            return ToolResult(
-                success=True,
-                data=result,
-                metadata={"tool": "search_articles", "query": query}
-            )
+            return json.dumps({"success": True, "data": result, "tool": "search_articles", "query": query})
         else:
-            return ToolResult(
-                success=False,
-                error_message=result.get("error", "Search failed"),
-                metadata={"tool": "search_articles", "query": query}
-            )
+            return json.dumps({"success": False, "error": result.get("error", "Search failed"), "tool": "search_articles", "query": query})
 
     except Exception as e:
-        return ToolResult(
-            success=False,
-            error_message=str(e),
-            metadata={"tool": "search_articles", "query": query}
-        )
+        return json.dumps({"success": False, "error": str(e), "tool": "search_articles", "query": query})
 
 
-def extract_article_content_tool(urls: List[str], include_metadata: bool = True) -> ToolResult:
+@tool
+def extract_article_content_tool(urls: List[str], include_metadata: bool = True) -> str:
     """Extract content from article URLs using the ResearchAgent"""
     try:
         from langgraph_workflow import ResearchAgent
@@ -376,21 +368,9 @@ def extract_article_content_tool(urls: List[str], include_metadata: bool = True)
         )
 
         if result.get("crawl_completed", False):
-            return ToolResult(
-                success=True,
-                data=result,
-                metadata={"tool": "extract_article_content", "urls": urls}
-            )
+            return json.dumps({"success": True, "data": result, "tool": "extract_article_content", "urls": urls})
         else:
-            return ToolResult(
-                success=False,
-                error_message="Content extraction failed",
-                metadata={"tool": "extract_article_content", "urls": urls}
-            )
+            return json.dumps({"success": False, "error": "Content extraction failed", "tool": "extract_article_content", "urls": urls})
 
     except Exception as e:
-        return ToolResult(
-            success=False,
-            error_message=str(e),
-            metadata={"tool": "extract_article_content", "urls": urls}
-        )
+        return json.dumps({"success": False, "error": str(e), "tool": "extract_article_content", "urls": urls})

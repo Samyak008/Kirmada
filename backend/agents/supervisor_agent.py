@@ -29,6 +29,8 @@ class WorkflowState(TypedDict):
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+import os
+TRACE_VERBOSE = os.getenv("AGENT_TRACE_VERBOSE", "false").lower() in {"1", "true", "yes"}
 
 
 class SupervisorAgent:
@@ -68,11 +70,12 @@ class SupervisorAgent:
         
         if current_phase_tasks:
             logger.info(f"Found {len(current_phase_tasks)} pending tasks, skipping new task creation")
-            # Update messages to indicate we're continuing with existing tasks
-            supervisor_message = AIMessage(
-                content=f"Supervisor continuing with {len(current_phase_tasks)} existing pending tasks"
-            )
-            state["messages"].append(supervisor_message)
+            # Optionally add a message to reduce trace noise
+            if TRACE_VERBOSE:
+                supervisor_message = AIMessage(
+                    content=f"Supervisor continuing with {len(current_phase_tasks)} existing pending tasks"
+                )
+                state["messages"].append(supervisor_message)
             return state
         
         # Analyze current state and make decisions
@@ -92,11 +95,12 @@ class SupervisorAgent:
                 created_tasks += 1
                 logger.info(f"Created task for {decision.chosen_agent.value}: {task.description}")
         
-        # Update messages
-        supervisor_message = AIMessage(
-            content=f"Supervisor decisions made: {created_tasks} tasks assigned for phase {agent_state.current_phase}. Content request analyzed: {agent_state.content_request[:100]}..."
-        )
-        state["messages"].append(supervisor_message)
+        # Optionally add summary message (to reduce Studio traces)
+        if TRACE_VERBOSE:
+            supervisor_message = AIMessage(
+                content=f"Supervisor decisions made: {created_tasks} tasks assigned for phase {agent_state.current_phase}. Content request analyzed: {agent_state.content_request[:100]}..."
+            )
+            state["messages"].append(supervisor_message)
         
         logger.info(f"Supervisor completed. Current phase: {agent_state.current_phase}, Tasks created: {created_tasks}")
         return state

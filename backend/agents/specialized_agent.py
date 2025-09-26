@@ -29,6 +29,8 @@ class WorkflowState(TypedDict):
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+import os
+TRACE_VERBOSE = os.getenv("AGENT_TRACE_VERBOSE", "false").lower() in {"1", "true", "yes"}
 
 
 class SpecializedAgent:
@@ -80,11 +82,12 @@ class SpecializedAgent:
             # Update agent state with results
             self._update_agent_state(agent_state, result if isinstance(result, dict) else {})
             
-            # Add completion message
-            completion_message = AIMessage(
-                content=f"{self.agent_type.value} agent completed task: {task.description}"
-            )
-            state["messages"].append(completion_message)
+            # Optionally add completion message (to reduce LangGraph Studio trace noise)
+            if TRACE_VERBOSE:
+                completion_message = AIMessage(
+                    content=f"{self.agent_type.value} agent completed task: {task.description}"
+                )
+                state["messages"].append(completion_message)
             
             logger.info(f"{self.agent_type.value} agent completed task successfully. New phase: {agent_state.current_phase}")
             
@@ -94,10 +97,11 @@ class SpecializedAgent:
             task.status = TaskStatus.FAILED
             task.error_message = str(e)
             
-            error_message = AIMessage(
-                content=f"{self.agent_type.value} agent failed task: {str(e)}"
-            )
-            state["messages"].append(error_message)
+            if TRACE_VERBOSE:
+                error_message = AIMessage(
+                    content=f"{self.agent_type.value} agent failed task: {str(e)}"
+                )
+                state["messages"].append(error_message)
             state["errors"].append({
                 "agent": self.agent_type.value,
                 "task": task.task_id,

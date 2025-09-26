@@ -17,6 +17,10 @@ from models import (
     AgentMessage, SupervisorDecision, QualityCheck, Task
 )
 from tools import get_tools_for_agent, validate_tool_input, ToolResult
+from tools import (
+    search_articles_tool,
+    extract_article_content_tool,
+)
 
 
 # Set up logging
@@ -38,25 +42,13 @@ class WorkflowState(TypedDict):
 class InputType(str, Enum):
     """Type of input provided by user"""
     PROMPT = "prompt"
-    STATEMENT = "statement"
-    DOCUMENT = "document"
-    WEBSITE = "website"
-    VIDEO = "video"
 
 
 class UserInput(BaseModel):
-    """Schema for initial input shown in LangGraph Studio."""
-    input_type: InputType = Field(default=InputType.STATEMENT, description="Type of input provided")
-    content: str = Field(default="Create a short video about AI trends.", description="The main content input from the user")
-    project_name: str = Field(default="Demo Project")
-    content_type: str = Field(default="youtube_video", description="Type of content to create")
-    target_audience: str = Field(default="tech enthusiasts", description="Target audience for the content")
-    deadline: Optional[str] = Field(default=None, description="ISO datetime string")
-    document_content: Optional[str] = Field(default=None, description="Content of uploaded document")
-    website_url: Optional[str] = Field(default=None, description="URL of website to process")
-    video_url: Optional[str] = Field(default=None, description="URL of video to process")
-    project_id: Optional[str] = Field(default=None, description="Project ID if starting from existing project")
-    context: Dict[str, Any] = Field(default_factory=dict, description="Additional context for the workflow")
+    """Minimal input schema: a single prompt, optionally a heading."""
+    input_type: InputType = Field(default=InputType.PROMPT, description="Type of input provided")
+    prompt: str = Field(default="Create a short video about AI trends.", description="Primary user prompt")
+    heading: Optional[str] = Field(default=None, description="Optional heading/title for the project")
 
 
 class AgentRouter:
@@ -205,72 +197,31 @@ def _default_agent_state_from_input(inp: Union[UserInput, Dict[str, Any]]) -> Ag
     # Check if inp is a UserInput Pydantic model
     if isinstance(inp, UserInput):
         inbound = inp.dict()
-        
-        # Extract values from UserInput
-        project_name = inbound.get("project_name", project_name)
-        content_request = inbound.get("content", content_request)  # Changed from content_request to content
-        content_type = inbound.get("content_type", content_type)
-        target_audience = inbound.get("target_audience", target_audience)
-        deadline_str = inbound.get("deadline", deadline)
-        
-        # Process different input types
-        if hasattr(inp, 'input_type'):
-            input_type = inp.input_type
-            if input_type == InputType.DOCUMENT and inbound.get("document_content"):
-                content_request = inbound["document_content"]
-            elif input_type == InputType.WEBSITE and inbound.get("website_url"):
-                content_request = f"Process content from website: {inbound['website_url']}"
-            elif input_type == InputType.VIDEO and inbound.get("video_url"):
-                content_request = f"Process content from video: {inbound['video_url']}"
-            else:
-                # For statement or prompt, use the content field
-                content_request = inbound.get("content", content_request)
-        
-        # Generate project ID based on timestamp if not provided
-        if not inbound.get("project_id"):
-            project_id = f"proj_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        else:
-            project_id = inbound["project_id"]
-        
-        # Parse deadline if provided
+        heading = inbound.get("heading")
+        project_name = heading or project_name
+        # Single prompt is the source of content_request
+        content_request = inbound.get("prompt", content_request)
+        # Generate project ID automatically
+        project_id = f"proj_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # Use a far-future default deadline
         try:
-            if deadline_str:
-                import datetime as dt
-                deadline = dt.datetime.fromisoformat(deadline_str.replace('Z', '+00:00'))
-            else:
-                deadline = dt.datetime(2099, 12, 31, 23, 59, 59)
-        except:
             import datetime as dt
             deadline = dt.datetime(2099, 12, 31, 23, 59, 59)
+        except:
+            pass
         
     elif isinstance(inp, dict):
         inbound = inp
+        heading = inbound.get("heading")
+        project_name = heading or inbound.get("project_name", project_name)
+        # Support either 'prompt' or legacy 'content'
+        content_request = inbound.get("prompt") or inbound.get("content", content_request)
         project_id = inbound.get("project_id", f"proj_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-        project_name = inbound.get("project_name", project_name)
-        content_request = inbound.get("content", content_request)  # Changed from content_request to content
-        content_type = inbound.get("content_type", content_type)
-        target_audience = inbound.get("target_audience", target_audience)
-        
-        # Handle different input types from dict
-        input_type = inbound.get("input_type", "statement")
-        if input_type == "document" and inbound.get("document_content"):
-            content_request = inbound["document_content"]
-        elif input_type == "website" and inbound.get("website_url"):
-            content_request = f"Process content from website: {inbound['website_url']}"
-        elif input_type == "video" and inbound.get("video_url"):
-            content_request = f"Process content from video: {inbound['video_url']}"
-        else:
-            content_request = inbound.get("content", content_request)
-        
-        deadline_str = inbound.get("deadline", deadline)
         try:
             import datetime as dt
-            if deadline_str:
-                deadline = dt.datetime.fromisoformat(deadline_str.replace('Z', '+00:00'))
-            else:
-                deadline = dt.datetime(2099, 12, 31, 23, 59, 59)
-        except:
             deadline = dt.datetime(2099, 12, 31, 23, 59, 59)
+        except:
+            pass
     else:
         # If it's neither a UserInput nor a dict, treat as empty
         inbound = {}
@@ -315,19 +266,13 @@ def init_node(state: Union[UserInput, Dict[str, Any]]) -> WorkflowState:
     
     # Initialize messages list
     messages = []
-    if isinstance(inbound, dict) and 'messages' in inbound:
-        messages = inbound['messages']
-    elif hasattr(inbound, 'messages'):
-        messages = inbound.messages
-    
-    # Add initial message from user input
+    # Add a single concise initial human message to reduce trace noise
     if isinstance(inbound, UserInput):
-        user_message = HumanMessage(content=f"User input: {inbound.content}")
+        user_message = HumanMessage(content=inbound.prompt)
         messages.append(user_message)
     elif isinstance(inbound, dict):
-        content = inbound.get('content', 'No input provided')
-        user_message = HumanMessage(content=f"User input: {content}")
-        messages.append(user_message)
+        content = inbound.get('prompt') or inbound.get('content', 'No input provided')
+        messages.append(HumanMessage(content=content))
     
     # Log the type and attributes of agent_state before accessing them
     logger.debug(f"agent_state type: {type(agent_state)}")
@@ -390,6 +335,18 @@ def create_workflow_graph(config_path: str = "agent_prompts.yaml") -> StateGraph
     workflow.add_node("error_handler", lambda state: state)  # Placeholder for error handling
     workflow.add_node("router", router_node)  # NEW: define router node
 
+    # Register LangChain tools via ToolNode (kept available for future routing/use)
+    try:
+        research_tools = [
+            search_articles_tool,
+            extract_article_content_tool,
+        ]
+        tool_node = ToolNode(research_tools)
+        workflow.add_node("tools", tool_node)
+    except Exception:
+        # If ToolNode construction fails (e.g., version mismatch), continue without it
+        pass
+
     # Add edges
     workflow.add_edge("supervisor", "router")
     workflow.add_edge("agent_research", "router")
@@ -430,50 +387,18 @@ if __name__ == "__main__":
     
     # Example using different input types:
     
-    # 1. Statement input (simplified approach)
+    # 1. Prompt input (simplified approach)
     user_input_statement = UserInput(
-        input_type=InputType.STATEMENT,
-        content="I want to create a YouTube video about the latest AI trends in 2025",
-        project_name="AI Trends Video",
-        content_type="youtube_video",
-        target_audience="tech enthusiasts"
+        input_type=InputType.PROMPT,
+        prompt="I want to create a YouTube video about the latest AI trends in 2025",
+        heading="AI Trends Video"
     )
     
-    # 2. Document input
-    document_content = """
-    # Research Summary: AI in Healthcare
+    # 2. Legacy examples trimmed in simplified input model
     
-    Recent advances in artificial intelligence have revolutionized healthcare...
-    Key findings include improved diagnostic accuracy and patient outcomes...
-    """
-    user_input_document = UserInput(
-        input_type=InputType.DOCUMENT,
-        content="Please create content based on the following research document",
-        project_name="Healthcare AI Content",
-        document_content=document_content,
-        content_type="blog_article",
-        target_audience="medical professionals"
-    )
+    # 3. Website/document specific flows should be built using tools; omitted here
     
-    # 3. Website input
-    user_input_website = UserInput(
-        input_type=InputType.WEBSITE,
-        content="Create a presentation about this research paper",
-        project_name="Website Content",
-        website_url="https://example.com/ai-research-2025",
-        content_type="presentation",
-        target_audience="researchers"
-    )
-    
-    # 4. Video input
-    user_input_video = UserInput(
-        input_type=InputType.VIDEO,
-        content="Create a summary and social media content from this video",
-        project_name="Video Content Analysis",
-        video_url="https://example.com/interview-2025",
-        content_type="social_media_post",
-        target_audience="general audience"
-    )
+    # 4. Video-specific flows should be tool-driven; omitted
     
     # Run the workflow with statement input as an example
     result = app.invoke(user_input_statement)
