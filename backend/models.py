@@ -18,6 +18,7 @@ class ContentType(str, Enum):
     BLOG_ARTICLE = "blog_article"
     PODCAST = "podcast"
     PRESENTATION = "presentation"
+    VIDEO_CONTENT = "video_content"
 
 
 class AgentType(str, Enum):

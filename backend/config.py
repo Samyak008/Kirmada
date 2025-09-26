@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(..., env="OPENAI_API_KEY")
     anthropic_api_key: Optional[str] = Field(None, env="ANTHROPIC_API_KEY")
     # Preferred LLM model (set in .env: OPENAI_MODEL=gpt-4o or gpt-4o-mini)
-    openai_model: str = Field(default="gpt-4o-mini", env="OPENAI_MODEL")
+    openai_model: str = Field(default="gpt-5-mini", env="OPENAI_MODEL")
     
     # Supabase Configuration
     supabase_url: str = Field(..., env="SUPABASE_URL")

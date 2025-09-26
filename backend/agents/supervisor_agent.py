@@ -46,6 +46,22 @@ class SupervisorAgent:
         # Use the system prompt for decision making, but don't add to messages unless needed for debugging
         agent_state = state["agent_state"]
         
+        # Check if this is the first time the supervisor is being called
+        # If current phase is initial state, analyze the user input to determine the right phase
+        if agent_state.current_phase in ["planning", "initialize"]:
+            logger.info("Supervisor initializing workflow based on user input")
+            
+            # Analyze the content request to determine the appropriate starting phase
+            content_request = agent_state.content_request.lower()
+            
+            if "website:" in content_request or agent_state.content_type == "presentation":
+                agent_state.current_phase = "crawl"
+            elif "video:" in content_request:
+                agent_state.current_phase = "analyze_video"
+            else:
+                # Default to search for most content requests
+                agent_state.current_phase = "search"
+        
         # Check if there are already pending tasks for the current phase
         current_phase_tasks = [task for task in agent_state.tasks 
                               if task.status == TaskStatus.PENDING]
@@ -78,7 +94,7 @@ class SupervisorAgent:
         
         # Update messages
         supervisor_message = AIMessage(
-            content=f"Supervisor decisions made: {created_tasks} tasks assigned for phase {agent_state.current_phase}"
+            content=f"Supervisor decisions made: {created_tasks} tasks assigned for phase {agent_state.current_phase}. Content request analyzed: {agent_state.content_request[:100]}..."
         )
         state["messages"].append(supervisor_message)
         
@@ -91,15 +107,57 @@ class SupervisorAgent:
         
         decisions = []
         
-        # Analyze current phase and determine what needs to be done
-        if agent_state.current_phase == "search":
-            logger.info("Creating decision for search phase")
+        # When in initial phase, analyze the user's content request to determine best path
+        if agent_state.current_phase == "planning" or agent_state.current_phase == "search":
+            # Analyze the content request to determine appropriate next steps
+            content_request = agent_state.content_request.lower()
+            
+            # Determine if this is document, website, or general content request
+            if "website:" in content_request:
+                # This is a website processing request
+                logger.info("Detected website processing request")
+                agent_state.current_phase = "crawl"
+                decisions.append(SupervisorDecision(
+                    decision_id=f"crawl_{datetime.now().timestamp()}",
+                    context="Process website content: " + content_request,
+                    chosen_agent=AgentType.RESEARCH,
+                    reasoning="Research agent needed to crawl and extract website content",
+                    expected_outcome="Website content extracted and structured",
+                    priority=1
+                ))
+            elif "video:" in content_request:
+                # This is a video processing request
+                logger.info("Detected video processing request")
+                agent_state.current_phase = "analyze_video"
+                decisions.append(SupervisorDecision(
+                    decision_id=f"analyze_video_{datetime.now().timestamp()}",
+                    context="Analyze video content: " + content_request,
+                    chosen_agent=AgentType.RESEARCH,
+                    reasoning="Research agent needed to analyze video content",
+                    expected_outcome="Video content analyzed and key points extracted",
+                    priority=1
+                ))
+            else:
+                # This is a general content request - start with search
+                logger.info("Creating decision for search phase")
+                agent_state.current_phase = "search"
+                decisions.append(SupervisorDecision(
+                    decision_id=f"search_{datetime.now().timestamp()}",
+                    context=f"Search for content related to: {content_request}",
+                    chosen_agent=AgentType.RESEARCH,
+                    reasoning="Research agent needed to search for relevant content based on user request",
+                    expected_outcome="Relevant search results and URLs identified for the topic",
+                    priority=1
+                ))
+        
+        elif agent_state.current_phase == "analyze_video":
+            logger.info("Creating decision for video analysis phase")
             decisions.append(SupervisorDecision(
-                decision_id=f"search_{datetime.now().timestamp()}",
-                context="Search phase needs to find trending articles",
+                decision_id=f"video_analysis_{datetime.now().timestamp()}",
+                context="Analyze video content for summary and key points",
                 chosen_agent=AgentType.RESEARCH,
-                reasoning="Research agent needed to search for relevant content",
-                expected_outcome="Search results and URLs identified",
+                reasoning="Research agent needed to extract key points from video content",
+                expected_outcome="Video content analyzed with key points and summary extracted",
                 priority=1
             ))
         
