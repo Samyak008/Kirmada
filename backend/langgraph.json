@@ -1,0 +1,7 @@
+{
+  "dependencies": ["-r requirements.txt"],
+  "graphs": {
+    "production_workflow": "runtime_entry:production_workflow"
+  },
+  "env": ".env"
+}
