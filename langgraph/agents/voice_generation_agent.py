@@ -3,12 +3,27 @@ import os
 import json
 import asyncio
 import hashlib
-import torchaudio as ta
 from typing import Dict, List, Any, Optional
 from langchain_core.tools import tool
 from datetime import datetime
 import subprocess
 import sys
+
+# Import torchaudio lazily to avoid issues at module level
+TORCHAUDIO_AVAILABLE = False
+ta = None
+
+def lazy_import_torchaudio():
+    global TORCHAUDIO_AVAILABLE, ta
+    if not TORCHAUDIO_AVAILABLE:
+        try:
+            import torchaudio as _ta
+            ta = _ta
+            TORCHAUDIO_AVAILABLE = True
+        except ImportError:
+            TORCHAUDIO_AVAILABLE = False
+            ta = None
+    return TORCHAUDIO_AVAILABLE, ta
 
 class VoiceGenerationAgent:
     def __init__(self):
@@ -101,7 +116,7 @@ class VoiceGenerationAgent:
                 "error": "Failed to load Chatterbox TTS model",
                 "file_path": None
             }
-        
+
         try:
             # Adjust parameters based on emotion
             if emotion.lower() in ["dramatic", "excited", "expressive"]:
@@ -132,31 +147,48 @@ class VoiceGenerationAgent:
                     cfg_weight=cfg_weight
                 )
             
-            # Save the generated audio
-            filename = self._generate_filename(text, voice_name)
-            file_path = os.path.join(self.generated_voices_dir, filename)
-            
-            ta.save(file_path, wav, self.sample_rate)
-            
-            # Get file info
-            file_size = os.path.getsize(file_path)
-            duration = wav.shape[-1] / self.sample_rate
-            
-            return {
-                "success": True,
-                "file_path": file_path,
-                "filename": filename,
-                "duration": f"{duration:.2f}s",
-                "file_size": f"{file_size / 1024:.1f}KB",
-                "voice_name": voice_name,
-                "emotion": emotion,
-                "text_length": len(text),
-                "parameters": {
-                    "exaggeration": exaggeration,
-                    "cfg_weight": cfg_weight
+            # Only save the audio if torchaudio is available
+            torchaudio_ok, ta_module = lazy_import_torchaudio()
+            if torchaudio_ok and ta_module is not None:
+                # Save the generated audio
+                filename = self._generate_filename(text, voice_name)
+                file_path = os.path.join(self.generated_voices_dir, filename)
+                
+                ta_module.save(file_path, wav, self.sample_rate)
+                
+                # Get file info
+                file_size = os.path.getsize(file_path)
+                duration = wav.shape[-1] / self.sample_rate
+                
+                return {
+                    "success": True,
+                    "file_path": file_path,
+                    "filename": filename,
+                    "duration": f"{duration:.2f}s",
+                    "file_size": f"{file_size / 1024:.1f}KB",
+                    "voice_name": voice_name,
+                    "emotion": emotion,
+                    "text_length": len(text),
+                    "parameters": {
+                        "exaggeration": exaggeration,
+                        "cfg_weight": cfg_weight
+                    }
                 }
-            }
-            
+            else:
+                # Without torchaudio, we can't save the file but we can still return success info
+                return {
+                    "success": False,
+                    "error": "torchaudio not available - cannot save audio file",
+                    "file_path": None,
+                    "voice_name": voice_name,
+                    "emotion": emotion,
+                    "text_length": len(text),
+                    "parameters": {
+                        "exaggeration": exaggeration,
+                        "cfg_weight": cfg_weight
+                    }
+                }
+
         except Exception as e:
             return {
                 "success": False,
@@ -229,15 +261,15 @@ async def generate_voiceover(
             return f"""
 🎙️ **VOICEOVER GENERATED SUCCESSFULLY**
 
-**📄 Script Preview:** {clean_text[:100]}...
-**🎵 Audio File:** {result['filename']}
-**⏱️ Duration:** {result['duration']}
-**📁 File Size:** {result['file_size']}
-**👤 Voice:** {result['voice_name']}
-**🎭 Emotion:** {result['emotion']}
-**📊 Parameters:** Exaggeration: {result['parameters']['exaggeration']}, CFG: {result['parameters']['cfg_weight']}
+📄 Script Preview: {clean_text[:100]}...
+🎵 Audio File: {result['filename']}
+⏱️ Duration: {result['duration']}
+📁 File Size: {result['file_size']}
+👤 Voice: {result['voice_name']}
+🎭 Emotion: {result['emotion']}
+📊 Parameters: Exaggeration: {result['parameters']['exaggeration']}, CFG: {result['parameters']['cfg_weight']}
 
-**📍 Local Path:** {result['file_path']}
+📍 Local Path: {result['file_path']}
 
 ✅ **Voice generation complete!** Ready for Google Drive upload.
 """
@@ -245,14 +277,14 @@ async def generate_voiceover(
             return f"""
 ❌ **VOICEOVER GENERATION FAILED**
 
-**Error:** {result['error']}
+Error: {result['error']}
 
-**💡 Troubleshooting:**
+💡 Troubleshooting:
 - Check if Chatterbox TTS is properly installed
 - Ensure CUDA is available for GPU acceleration
 - Verify script text is not empty
 - Try reducing text length if too long
-"""
+            """
             
     except Exception as e:
         return f"❌ Error in voiceover generation: {str(e)}"
@@ -337,15 +369,15 @@ Could not extract file path from voice generation result.
 
 ☁️ **GOOGLE DRIVE UPLOAD SUCCESSFUL**
 
-**📁 Folder:** voiceover/{sanitized_title if sanitized_title else 'voice_generation'}
-**📄 Filename:** {os.path.basename(file_path)}
-**🆔 File ID:** {file_id}
+📁 Folder: voiceover/{sanitized_title if sanitized_title else 'voice_generation'}
+📄 Filename: {os.path.basename(file_path)}
+🆔 File ID: {file_id}
 
-**🔗 Links:**
+🔗 Links:
 - **View:** {shareable_link}
 - **Download:** {download_link}
 
-**📊 Metadata:**
+📊 Metadata:
 - Voice: {voice_name}
 - Script: {script_title}
 - Emotion: {emotion}
@@ -361,14 +393,14 @@ Could not extract file path from voice generation result.
 
 ❌ **GOOGLE DRIVE UPLOAD FAILED**
 
-**Error:** {str(e)}
+Error: {str(e)}
 
-**💡 Troubleshooting:**
+💡 Troubleshooting:
 1. Voice file is saved locally at: {file_path}
 2. You can manually upload to Google Drive
 3. Check if image uploads are working (they use the same system)
 
-**📝 Manual Upload:**
+📝 Manual Upload:
 1. Go to Google Drive
 2. Navigate to voiceover folder
 3. Upload: {os.path.basename(file_path)}
@@ -392,15 +424,15 @@ async def list_available_voices() -> str:
             return """
 📢 **NO CUSTOM VOICES FOUND**
 
-**Available Voices:**
+Available Voices:
 - `default` (Built-in Chatterbox voice)
 
-**💡 To add your voice:**
+💡 To add your voice:
 1. Record a clear audio sample (10-30 seconds)
 2. Save as `your_name.wav` in `langgraph/voice_samples/`
 3. Use `your_name` as voice_name parameter
 
-**📋 Supported formats:** WAV, MP3, M4A
+📋 Supported formats: WAV, MP3, M4A
 """
         
         voices_list = "\n".join([f"- `{voice}`" for voice in ["default"] + voices])
@@ -408,15 +440,15 @@ async def list_available_voices() -> str:
         return f"""
 🎭 **AVAILABLE VOICES**
 
-**Voice Samples:**
+Voice Samples:
 {voices_list}
 
-**💡 Usage:**
+💡 Usage:
 - Use voice name in generate_voiceover function
 - `default` uses the base Chatterbox model
 - Custom voices enable voice cloning
 
-**📁 Voice samples location:** `langgraph/voice_samples/`
+📁 Voice samples location: `langgraph/voice_samples/`
 """
         
     except Exception as e:
@@ -468,8 +500,8 @@ Use `generate_voiceover_with_upload` to generate and upload voices.
         return f"""
 ☁️ **GOOGLE DRIVE VOICE FILES**
 
-**📁 Folder:** voiceover
-**📊 Total Files:** {len(files)}
+📁 Folder: voiceover
+📊 Total Files: {len(files)}
 
 {chr(10).join(file_list)}
 

@@ -1,7 +1,8 @@
 {
-    "dependencies": ["."],
+    "dependencies": [".", "../backend"],
     "graphs": {
-        "news_research_agent": "./agent1.py:agent"
+        "news_research_agent": "./agent1.py:agent",
+        "multi_agent_news_research": "./multi_agent_workflow.py:get_workflow_app"
     },
     "env": "../.env"
 }

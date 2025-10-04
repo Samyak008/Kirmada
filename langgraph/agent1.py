@@ -246,12 +246,25 @@ all_tools = (search_tools + crawl_tools + supabase_tools_sync_wrapped +
              prompt_generation_tools + image_generation_tools + 
              voice_tools + voice_cloning_tools)
 
-# Create the agent with comprehensive tools
-agent = create_react_agent(
+# Create the original agent with comprehensive tools
+original_agent = create_react_agent(
     model, 
     all_tools, 
     prompt=SYSTEM_PROMPT
 )
+
+# Import multi-agent workflow
+from multi_agent_workflow import get_workflow_app
+
+# Determine which agent to use based on environment variable
+use_multi_agent = os.getenv("USE_MULTI_AGENT", "false").lower() == "true"
+
+if use_multi_agent:
+    print("Using multi-agent workflow...")
+    agent = get_workflow_app()
+else:
+    print("Using original single-agent workflow...")
+    agent = original_agent
 
 # Debug and validation functions
 def debug_article_data(article_data: dict, stage: str):
