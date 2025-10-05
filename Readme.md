@@ -2,6 +2,14 @@
 
 An advanced multi-agent AI platform for automated content creation, from research and scriptwriting to visual asset generation and production management. This system orchestrates multiple AI agents to transform trending tech news into fully-produced social media content using LangGraph for workflow management and various AI services for content generation.
 
+## Demo Video
+
+[![Rocket Reels AI Demo](https://img.youtube.com/vi/UB6DAETz3Lk/maxresdefault.jpg)](https://www.youtube.com/watch?v=UB6DAETz3Lk)
+
+*Watch our automated content creation pipeline in action - Click to play on YouTube*
+
+---
+
 ## Table of Contents
 1. [Features](#features)
 2. [System Architecture](#system-architecture)
