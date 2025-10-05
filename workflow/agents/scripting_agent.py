@@ -11,10 +11,10 @@ load_dotenv()
 
 # Initialize OpenAI GPT-4o-mini for script generation
 script_model = ChatOpenAI(
-    model="gpt-5-mini",
+    model="gpt-4o-mini",
     api_key=os.getenv("OPENAI_API_KEY"),
     max_tokens=4000,
-    temperature=1.0
+    temperature=0.7
 )
 
 @tool

@@ -10,10 +10,10 @@ load_dotenv()
 
 # Initialize OpenAI GPT-4o-mini for prompt generation
 prompt_model = ChatOpenAI(
-    model="gpt-5-mini",
+    model="gpt-4o-mini",
     api_key=os.getenv("OPENAI_API_KEY"),
     max_tokens=2000,
-    temperature=1.0
+    temperature=0.7
 )
 
 def extract_prompts_from_llm_response(response_text: str, num_prompts: int = 5) -> list[dict]:

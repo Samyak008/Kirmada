@@ -4,14 +4,10 @@ import os
 import re
 from typing import Dict, Any, List, Optional, Annotated
 from langgraph.graph import StateGraph, END
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from dataclasses import dataclass, field
 from datetime import datetime
 from operator import add
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # Import agent tools
 from agents.search_agent import search_tools
@@ -25,14 +21,6 @@ from agents.broll_search_agent import broll_search_tools
 from agents.asset_gathering_agent import asset_gathering_tools
 from agents.notion_agent import notion_tools
 from agents.visual_table_agent import visual_table_tools
-
-# Initialize OpenAI GPT-4o-mini for workflow intelligence
-workflow_model = ChatOpenAI(
-    model="gpt-4o-mini",
-    api_key=os.getenv("OPENAI_API_KEY"),
-    temperature=0.3,
-    max_tokens=2000
-)
 
 @dataclass
 class WorkflowState:
@@ -147,7 +135,7 @@ class ProductionWorkflow:
         
         # Finalize ends the workflow
         self.workflow.add_edge("finalize", END)
-
+    
     async def prompt_generation_node(self, state: WorkflowState) -> WorkflowState:
         """Generate prompts for image generation (parallel node)"""
         try:
@@ -558,7 +546,7 @@ class ProductionWorkflow:
                 }
             
             # Intelligently select which shots need images based on visual importance
-            selected_prompts = await self._select_shots_for_image_generation(
+            selected_prompts = self._select_shots_for_image_generation(
                 state.prompts_generated, 
                 state.shot_breakdown,
                 target_images=10  # Generate 10 images spread across the video timeline
@@ -995,9 +983,9 @@ Workflow Complete - Ready for Editor!
                 "messages": [AIMessage(content="Workflow finalization failed")]
             }
     
-    async def _select_shots_for_image_generation(self, prompts: List[Dict], shot_breakdown: List[Dict], target_images: int = 6) -> List[Dict]:
+    def _select_shots_for_image_generation(self, prompts: List[Dict], shot_breakdown: List[Dict], target_images: int = 6) -> List[Dict]:
         """
-        Intelligently select which shots should have images generated based on content analysis using OpenAI GPT-4o-mini
+        Intelligently select which shots should have images generated based on content analysis
         
         Args:
             prompts: List of all generated prompts
@@ -1007,7 +995,16 @@ Workflow Complete - Ready for Editor!
         Returns:
             List of selected prompts for image generation
         """
+        from langchain_community.chat_models import ChatLiteLLM
+        
+        # Use AI to analyze and score shots for visual importance
         try:
+            model = ChatLiteLLM(
+                model="deepseek/deepseek-chat",
+                api_key=os.getenv("DEEPSEEK_API_KEY"),
+                temperature=0.3
+            )
+            
             # Prepare shot information for analysis
             shot_info = []
             for i, (prompt, shot) in enumerate(zip(prompts, shot_breakdown)):
@@ -1035,11 +1032,12 @@ Shots:
 Return ONLY a JSON array of indices (0-based) for the {target_images} most important shots to visualize.
 Example: [0, 3, 7, 10, 13, 15]"""
 
-            response = await workflow_model.ainvoke([HumanMessage(content=analysis_prompt)])
+            response = model.invoke([{"role": "user", "content": analysis_prompt}])
             
             # Parse the response to get selected indices
             try:
                 # Extract JSON array from response
+                import re
                 json_match = re.search(r'\[[\d,\s]+\]', response.content)
                 if json_match:
                     selected_indices = json.loads(json_match.group())

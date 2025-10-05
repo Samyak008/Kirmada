@@ -3,6 +3,7 @@ import os
 import json
 import asyncio
 import hashlib
+import torchaudio as ta
 from typing import Dict, List, Any, Optional
 from langchain_core.tools import tool
 from datetime import datetime
@@ -23,24 +24,6 @@ class VoiceGenerationAgent:
         """Create necessary directories if they don't exist."""
         os.makedirs(self.voice_samples_dir, exist_ok=True)
         os.makedirs(self.generated_voices_dir, exist_ok=True)
-    
-    def _install_pytorch_audio(self):
-        """Ensure PyTorch and torchaudio are properly installed."""
-        try:
-            import torchaudio
-            return True
-        except (ImportError, OSError) as e:
-            print(f"⚠️ torchaudio issue: {e}")
-            print("📦 Attempting to reinstall PyTorch with audio support...")
-            try:
-                # Uninstall and reinstall with proper dependencies
-                subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", "torch", "torchaudio"])
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "torch", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
-                print("✅ PyTorch reinstalled successfully!")
-                return True
-            except subprocess.CalledProcessError as install_error:
-                print(f"❌ Failed to reinstall PyTorch: {install_error}")
-                return False
         
     def _install_chatterbox(self):
         """Install Chatterbox TTS if not already installed."""
@@ -63,10 +46,6 @@ class VoiceGenerationAgent:
             return True
             
         try:
-            # Ensure torchaudio is available
-            if not self._install_pytorch_audio():
-                return False
-                
             if not self._install_chatterbox():
                 return False
                 
@@ -126,9 +105,6 @@ class VoiceGenerationAgent:
             }
         
         try:
-            # Import torchaudio here when actually needed
-            import torchaudio as ta
-            
             # Adjust parameters for 60-second video generation (slower, more natural pace)
             # Higher cfg_weight = slower, more controlled speech for longer duration
             cfg_weight = max(0.8, cfg_weight)  # Increase for slower speech
@@ -335,9 +311,9 @@ Voice generation failed:
 Could not extract file path from voice generation result.
 """
         
-        # Step 2: Upload to Google Drive using the working save_voiceover_to_gdrive function
+        # Step 2: Upload to Google Drive using the working storage system
         try:
-            from gdrive_storage import initialize_gdrive_storage, save_voiceover_to_gdrive
+            from storage.gdrive_storage import initialize_gdrive_storage, save_voiceover_to_gdrive
             
             print("☁️ Uploading to Google Drive using working storage system...")
             
@@ -456,7 +432,7 @@ async def list_available_voices() -> str:
 async def list_gdrive_voice_files() -> str:
     """List voice files in Google Drive using the working storage system."""
     try:
-        from gdrive_storage import initialize_gdrive_storage
+        from storage.gdrive_storage import initialize_gdrive_storage
         
         storage = initialize_gdrive_storage()
         if not storage:
